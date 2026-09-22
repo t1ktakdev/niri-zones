@@ -1,0 +1,11 @@
+[package]
+name = "zones-niri"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+niri-ipc.workspace = true
+thiserror.workspace = true
+zones-core = { path = "../zones-core" }

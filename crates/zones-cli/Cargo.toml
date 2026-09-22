@@ -1,0 +1,12 @@
+[package]
+name = "niri-zones"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+clap.workspace = true
+zones-config = { path = "../zones-config" }
+zones-core = { path = "../zones-core" }
+zones-niri = { path = "../zones-niri" }

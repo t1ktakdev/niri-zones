@@ -1,0 +1,49 @@
+version = 1
+
+[general]
+gap = 12
+geometry_tolerance = 2
+allow_tiled_to_floating = false
+
+[outputs."eDP-1"]
+layout = "coding"
+
+[[layouts]]
+name = "coding"
+
+[[layouts.zones]]
+id = "editor"
+name = "Editor"
+x = 0.0
+y = 0.0
+width = 0.68
+height = 1.0
+
+[[layouts.zones]]
+id = "terminal"
+name = "Terminal"
+x = 0.68
+y = 0.0
+width = 0.32
+height = 0.5
+
+[[layouts.zones]]
+id = "browser"
+name = "Browser"
+x = 0.68
+y = 0.5
+width = 0.32
+height = 0.5
+
+[[rules]]
+priority = 20
+app_id_regex = "^firefox$"
+title_regex = "YouTube"
+layout = "coding"
+zone = "browser"
+
+[[rules]]
+priority = 10
+app_id_regex = "^(Alacritty|foot|kitty)$"
+layout = "coding"
+zone = "terminal"
