@@ -13,6 +13,8 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.86"
 license = "MIT"
+repository = "https://github.com/t1ktakdev/niri-zones"
+homepage = "https://github.com/t1ktakdev/niri-zones"
 
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
