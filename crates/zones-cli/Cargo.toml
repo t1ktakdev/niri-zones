@@ -7,6 +7,8 @@ license.workspace = true
 
 [dependencies]
 clap.workspace = true
+serde.workspace = true
+toml.workspace = true
 zones-config = { path = "../zones-config" }
 zones-core = { path = "../zones-core" }
 zones-niri = { path = "../zones-niri" }

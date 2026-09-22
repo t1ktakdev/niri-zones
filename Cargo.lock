@@ -258,6 +258,8 @@ name = "niri-zones"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "serde",
+ "toml",
  "zones-config",
  "zones-core",
  "zones-niri",

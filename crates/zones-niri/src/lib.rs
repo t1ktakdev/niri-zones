@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use niri_ipc::socket::Socket;
 use niri_ipc::{Action, Event, Output, PositionChange, Request, Response, SizeChange, Window};
 use thiserror::Error;
-use zones_core::NormalizedRect;
+use zones_core::{NormalizedRect, Rect, Size};
 
 #[derive(Debug, Error)]
 pub enum NiriError {
@@ -38,6 +38,10 @@ pub enum NiriError {
     FloatingTransitionTimeout(u64),
     #[error("timed out waiting for window {0} geometry to settle after IPC actions")]
     GeometrySettleTimeout(u64),
+    #[error("timed out waiting for window {0} to return to the tiling layout")]
+    TilingTransitionTimeout(u64),
+    #[error("saved restore geometry is missing or cannot be represented by Niri")]
+    InvalidRestoreGeometry,
 }
 
 pub struct NiriBackend {
@@ -131,12 +135,61 @@ impl NiriBackend {
             actions_sent += 1;
         }
 
-        let after = self.wait_until_layout_stable(id, Duration::from_millis(250))?;
+        let after = self.wait_until_layout_stable(id, true, Duration::from_millis(250))?;
         if !after.is_floating {
             return Err(NiriError::PostconditionFailed(id));
         }
 
         Ok(ApplyReport { before, after, actions_sent })
+    }
+
+    pub fn restore_window(
+        &mut self,
+        id: u64,
+        baseline_floating: bool,
+        baseline_geometry: Option<Rect>,
+        baseline_size: Option<Size>,
+    ) -> Result<Window, NiriError> {
+        let current = self.window(id)?;
+        if baseline_floating {
+            let geometry = baseline_geometry.ok_or(NiriError::InvalidRestoreGeometry)?;
+            if !current.is_floating {
+                self.action(Action::MoveWindowToFloating { id: Some(id) })?;
+                self.wait_until_floating(id, Duration::from_secs(1))?;
+            }
+            self.action(Action::SetWindowWidth {
+                id: Some(id),
+                change: SizeChange::SetFixed(fixed_size(geometry.width)?),
+            })?;
+            self.action(Action::SetWindowHeight {
+                id: Some(id),
+                change: SizeChange::SetFixed(fixed_size(geometry.height)?),
+            })?;
+            let resized = self.wait_until_layout_stable(id, true, Duration::from_millis(250))?;
+            let current_geometry =
+                visual_geometry(&resized).ok_or(NiriError::InvalidRestoreGeometry)?;
+            self.action(Action::MoveFloatingWindow {
+                id: Some(id),
+                x: PositionChange::AdjustFixed(geometry.x - current_geometry.x),
+                y: PositionChange::AdjustFixed(geometry.y - current_geometry.y),
+            })?;
+            self.wait_until_layout_stable(id, true, Duration::from_millis(250))
+        } else {
+            if current.is_floating {
+                self.action(Action::MoveWindowToTiling { id: Some(id) })?;
+                self.wait_until_tiled(id, Duration::from_secs(1))?;
+            }
+            let size = baseline_size.ok_or(NiriError::InvalidRestoreGeometry)?;
+            self.action(Action::SetWindowWidth {
+                id: Some(id),
+                change: SizeChange::SetFixed(fixed_size(size.width)?),
+            })?;
+            self.action(Action::SetWindowHeight {
+                id: Some(id),
+                change: SizeChange::SetFixed(fixed_size(size.height)?),
+            })?;
+            self.wait_until_layout_stable(id, false, Duration::from_millis(250))
+        }
     }
 
     fn wait_until_floating(&mut self, id: u64, timeout: Duration) -> Result<Window, NiriError> {
@@ -153,9 +206,24 @@ impl NiriBackend {
         }
     }
 
+    fn wait_until_tiled(&mut self, id: u64, timeout: Duration) -> Result<Window, NiriError> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let window = self.window(id)?;
+            if !window.is_floating {
+                return Ok(window);
+            }
+            if Instant::now() >= deadline {
+                return Err(NiriError::TilingTransitionTimeout(id));
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
     fn wait_until_layout_stable(
         &mut self,
         id: u64,
+        expected_floating: bool,
         timeout: Duration,
     ) -> Result<Window, NiriError> {
         const POLL_INTERVAL: Duration = Duration::from_millis(5);
@@ -167,9 +235,12 @@ impl NiriBackend {
 
         loop {
             let current = self.window(id)?;
-            if current.is_floating {
+            if current.is_floating == expected_floating {
                 stable_repeats = match &previous {
-                    Some(previous) if previous.is_floating && previous.layout == current.layout => {
+                    Some(previous)
+                        if previous.is_floating == expected_floating
+                            && previous.layout == current.layout =>
+                    {
                         stable_repeats + 1
                     }
                     _ => 0,
@@ -261,6 +332,23 @@ pub fn zone_action_plan(
     }
 
     Ok(actions)
+}
+
+pub fn visual_geometry(window: &Window) -> Option<Rect> {
+    let (x, y) = window.layout.tile_pos_in_workspace_view?;
+    let (width, height) = window.layout.tile_size;
+    Rect::new(x, y, width, height).ok()
+}
+
+fn fixed_size(value: f64) -> Result<i32, NiriError> {
+    if !value.is_finite() {
+        return Err(NiriError::InvalidRestoreGeometry);
+    }
+    let rounded = value.round();
+    if rounded < 1.0 || rounded > i32::MAX as f64 {
+        return Err(NiriError::InvalidRestoreGeometry);
+    }
+    Ok(rounded as i32)
 }
 
 fn validate_gap(gap: f64) -> Result<(), NiriError> {
