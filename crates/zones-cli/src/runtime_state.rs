@@ -91,6 +91,12 @@ impl RuntimeState {
         self.windows.iter().find(|record| record.id == id)
     }
 
+    pub fn retain_where(&mut self, mut keep: impl FnMut(&WindowRecord) -> bool) -> bool {
+        let before = self.windows.len();
+        self.windows.retain(|record| keep(record));
+        self.windows.len() != before
+    }
+
     pub fn remove(&mut self, id: u64) -> Option<WindowRecord> {
         let index = self.windows.iter().position(|record| record.id == id)?;
         Some(self.windows.remove(index))
@@ -179,5 +185,38 @@ mod tests {
         assert_eq!(record.baseline_geometry.unwrap().to_rect().unwrap(), baseline);
         assert_eq!(record.baseline_size.unwrap().to_size(), Size { width: 500.0, height: 400.0 });
         assert_eq!(record.applied_geometry.to_rect().unwrap(), applied);
+    }
+
+    #[test]
+    fn reconciliation_can_drop_stale_window_records() {
+        let mut state = RuntimeState::empty("/run/user/1000/niri.test.sock".into());
+        state.windows.push(WindowRecord {
+            id: 7,
+            app_id: Some("kitty".into()),
+            pid: Some(42),
+            baseline_floating: false,
+            baseline_geometry: None,
+            baseline_size: Some(StoredSize { width: 800.0, height: 600.0 }),
+            current_layout: "halves".into(),
+            current_zone: "1".into(),
+            applied_geometry: StoredGeometry { x: 0.0, y: 0.0, width: 400.0, height: 600.0 },
+        });
+        state.windows.push(WindowRecord {
+            id: 8,
+            app_id: Some("firefox".into()),
+            pid: Some(99),
+            baseline_floating: false,
+            baseline_geometry: None,
+            baseline_size: Some(StoredSize { width: 800.0, height: 600.0 }),
+            current_layout: "halves".into(),
+            current_zone: "2".into(),
+            applied_geometry: StoredGeometry { x: 400.0, y: 0.0, width: 400.0, height: 600.0 },
+        });
+
+        let changed = state.retain_where(|record| record.id == 7);
+
+        assert!(changed);
+        assert!(state.get(7).is_some());
+        assert!(state.get(8).is_none());
     }
 }

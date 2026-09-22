@@ -108,7 +108,7 @@ fn move_to_zone(
     let mut niri = NiriBackend::connect().map_err(|error| error.to_string())?;
     let window_id = resolve_window_id(&mut niri, id)?;
     let before = niri.window(window_id).map_err(|error| error.to_string())?;
-    let mut state = RuntimeState::load_current()?;
+    let mut state = load_reconciled_state(&mut niri)?;
 
     if state.get(window_id).is_some_and(|record| {
         record.app_id.as_deref() != before.app_id.as_deref() || record.pid != before.pid
@@ -185,7 +185,7 @@ fn restore_window_state(explicit_config: Option<&Path>, id: Option<u64>) -> Resu
     let mut niri = NiriBackend::connect().map_err(|error| error.to_string())?;
     let window_id = resolve_window_id(&mut niri, id)?;
     let current = niri.window(window_id).map_err(|error| error.to_string())?;
-    let mut state = RuntimeState::load_current()?;
+    let mut state = load_reconciled_state(&mut niri)?;
     let record = state
         .get(window_id)
         .cloned()
@@ -262,6 +262,22 @@ fn resolve_window_id(niri: &mut NiriBackend, id: Option<u64>) -> Result<u64, Str
             .map(|window| window.id)
             .ok_or_else(|| "no focused window".to_owned()),
     }
+}
+
+fn load_reconciled_state(niri: &mut NiriBackend) -> Result<RuntimeState, String> {
+    let mut state = RuntimeState::load_current()?;
+    let windows = niri.windows().map_err(|error| error.to_string())?;
+    let changed = state.retain_where(|record| {
+        windows.iter().any(|window| {
+            window.id == record.id
+                && window.app_id.as_deref() == record.app_id.as_deref()
+                && window.pid == record.pid
+        })
+    });
+    if changed {
+        state.save_atomic()?;
+    }
+    Ok(state)
 }
 
 fn status() -> Result<(), String> {
