@@ -1,39 +1,74 @@
+<div align="center">
+
 # niri-zones
 
-**FancyZones-style window zones for Niri.**
+**FancyZones-style window zones for Niri**
 
-`niri-zones` is a native-to-Niri zone engine for floating windows. The goal is simple: choose a zone and place the current floating window there without replacing Niri's scrolling tiling model.
+Wayland-native zone selection for floating windows — fast, small, and built around Niri IPC.
 
-> **v0.1.0** — usable first release. Core snapping, restore state, Niri 26.04 IPC integration, and the Wayland-native layer-shell overlay have been exercised on a live Niri session.
+[English](README.md) · [Русский](README.ru.md)
 
-## Why
+[![CI](https://github.com/t1ktakdev/niri-zones/actions/workflows/ci.yml/badge.svg)](https://github.com/t1ktakdev/niri-zones/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/t1ktakdev/niri-zones)](https://github.com/t1ktakdev/niri-zones/releases/latest)
+[![License](https://img.shields.io/github/license/t1ktakdev/niri-zones)](LICENSE)
+![Rust](https://img.shields.io/badge/Rust-1.86%2B-orange)
+![Niri](https://img.shields.io/badge/Niri-26.04-blue)
 
-Niri has a capable floating layout and IPC actions for moving/resizing windows, but it does not currently ship a FancyZones-style zone manager. `niri-zones` adds deterministic layouts, named zones, keyboard/mouse selection, restore semantics, rules, and a Wayland-native overlay.
+<img src=".github/assets/hero.svg" alt="niri-zones overlay preview" width="100%">
 
-## Current workspace
+</div>
 
-- `zones-core` — compositor-independent geometry, layouts, directional selection, snap state and a mock backend.
-- `zones-config` — schema-versioned TOML, validation and regexes compiled at activation time.
-- `zones-niri` — thin Niri 26.04 IPC adapter; normalized `0..1` zones become Niri percentages.
-- `zones-overlay` — Wayland-native wlr-layer-shell chooser with transparent previews, pointer selection, digits, arrows, Enter and Escape.
-- `niri-zones` — CLI with `status`, `doctor`, `list`, `move`, `show` and `restore`.
+---
 
-The workspace stays deliberately small: core math is shared by the IPC backend and overlay so preview geometry cannot drift from snap geometry.
+## What it does
 
-## Requirements
+Press a key, choose a zone, and the focused window snaps into place.
 
-- Niri 26.04
-- Wayland session with `wlr-layer-shell`
-- `libxkbcommon`
-- Rust 1.86+ only when building from source
+```text
+Mod+Z
+  ↓
+┌─────────────────────────────────────────┐
+│  ╭────────────────╮ ╭────────────────╮  │
+│  │       1        │ │       2        │  │
+│  │                │ │                │  │
+│  ╰────────────────╯ ╰────────────────╯  │
+└─────────────────────────────────────────┘
+  ↓
+1 / 2 / arrows / mouse
+  ↓
+window snaps to the selected zone
+```
 
-## Installation
+The overlay and the snap backend use the **same geometry engine**, so the preview is the target that Niri receives.
 
-### Release binary
+## Features
 
-Download the Linux x86_64 archive from the GitHub Releases page, extract it, then place `niri-zones` somewhere in your `PATH`, for example `~/.local/bin`.
+| Feature | Status |
+| --- | --- |
+| Wayland-native layer-shell overlay | ✅ |
+| Keyboard selection: 1–9, arrows, Enter, Escape | ✅ |
+| Mouse hover and click | ✅ |
+| Halves / thirds / quarters / main-stack | ✅ |
+| Restore original window state | ✅ |
+| Explicit tiled → floating conversion | ✅ |
+| Idempotent repeated snaps | ✅ |
+| Niri event stream integration | ✅ |
+| Versioned TOML config | ✅ |
+| Physical multi-monitor verification | ⏳ |
+| Fractional-scale hardware verification | ⏳ |
+| Drag-to-snap | Not implemented |
 
-### From source
+## Quick start
+
+### 1. Install
+
+Download the Linux x86_64 archive from [Releases](https://github.com/t1ktakdev/niri-zones/releases/latest), extract it, then:
+
+```bash
+install -Dm755 niri-zones ~/.local/bin/niri-zones
+```
+
+Or build from source:
 
 ```bash
 git clone https://github.com/t1ktakdev/niri-zones.git
@@ -42,69 +77,94 @@ cargo build --release
 install -Dm755 target/release/niri-zones ~/.local/bin/niri-zones
 ```
 
-## Quick start
+### 2. Verify the session
 
 ```bash
-cargo build --release
-./target/release/niri-zones doctor
-./target/release/niri-zones list halves
-./target/release/niri-zones show --layout halves --float
-./target/release/niri-zones move 2 --layout halves --float
-./target/release/niri-zones restore
+niri-zones doctor
 ```
 
-A tiled window is refused by default. Converting it to floating must be explicit:
+### 3. Try the overlay
 
 ```bash
-niri-zones move 1 --float
+niri-zones show --layout halves --float
 ```
 
-Configured zones can be named, so the same flow can be `niri-zones move terminal --layout coding`. The overlay captures the focused Niri window before taking keyboard focus, then snaps that original window after selection.
+Controls:
 
-## Configuration
+- `1..9` — select a zone immediately
+- `← ↑ ↓ →` — change selection
+- `Enter` — confirm
+- `Escape` — cancel
+- left click — select the zone under the pointer
 
-Copy `examples/config.toml` to `$XDG_CONFIG_HOME/niri-zones/config.toml` (or `~/.config/niri-zones/config.toml`). The config starts at schema version `1`.
-
-Rules are resolved deterministically: higher explicit priority, then more constraints, then earlier file order. Regexes are compiled only when the candidate config is activated; an invalid candidate never replaces a valid running config.
-
-## Built-in layouts
-
-- `halves`
-- `thirds`
-- `main-stack`
-- `quarters`
-
-The core supports both free-form normalized rectangles and structured split trees.
-
-## Niri integration model
-
-Niri's IPC exposes proportional position/size actions relative to its working area. `niri-zones` stores zones as normalized `0..1` rectangles and translates them to the percentage values expected by Niri. A pixel gap is applied as a fixed inset after the proportional operation, so the client does not need to guess panel/strut dimensions.
-
-A true FancyZones-style drag hook is not promised yet: the current public IPC does not expose enough global pointer/interactive-move state to implement it cleanly without input hacks.
-
-## Overlay UX
-
-The first layer-shell overlay is implemented. A recommended Niri binding is:
+### 4. Add a Niri keybind
 
 ```kdl
 Mod+Z repeat=false { spawn "niri-zones" "show" "--float"; }
 ```
 
-`1..9` selects immediately, arrows change selection, Enter confirms, Escape cancels, and a left click selects the zone under the pointer. Tiled-to-floating conversion remains explicit through `--float` (or the corresponding config option).
+`niri-zones` never edits your Niri config automatically.
 
-The binding above is only a snippet; `niri-zones` never rewrites your Niri config automatically.
+## Commands
+
+```bash
+niri-zones doctor
+niri-zones status
+niri-zones list halves
+niri-zones show --layout halves --float
+niri-zones move 2 --layout halves --float
+niri-zones restore
+```
+
+## Built-in layouts
+
+- `halves`
+- `thirds`
+- `quarters`
+- `main-stack`
+
+Custom layouts are supported through the versioned TOML config.
+
+## Configuration
+
+Copy the example:
+
+```bash
+mkdir -p ~/.config/niri-zones
+cp examples/config.toml ~/.config/niri-zones/config.toml
+```
+
+Rules are deterministic: higher priority wins, then specificity, then file order. Invalid regexes or malformed zones are rejected before activation.
+
+## How it works
+
+`niri-zones` is split into small Rust crates:
+
+- **zones-core** — geometry, layouts, directional selection, snap state
+- **zones-config** — TOML schema, validation, compiled rules
+- **zones-niri** — Niri 26.04 IPC adapter
+- **zones-overlay** — Wayland/wlr-layer-shell chooser
+- **niri-zones** — CLI
+
+Normalized zones are stored in `0..1` space and translated into Niri's proportional working-area operations. A logical-pixel gap is applied after proportional placement.
+
+## Requirements
+
+- Niri 26.04
+- Wayland
+- `libxkbcommon`
+- Rust 1.86+ when building from source
 
 ## Known limitations
 
-- Real multi-monitor placement has not yet been exercised on a physical multi-output setup.
-- Fractional-scale and rotated-output integration still need live hardware verification.
-- Drag-to-snap is intentionally not implemented; there is no global-input interception hack.
-- The current overlay is short-lived and event-driven; there is no always-running daemon yet.
-- Automatic rule-driven placement and hot config reload are planned beyond v0.1.0.
+- Physical multi-monitor integration has not yet been verified.
+- Fractional-scale and rotated-output hardware integration still need live testing.
+- Drag-to-snap is intentionally not implemented; no global input interception hacks are used.
+- No always-running daemon or automatic rule-driven placement yet.
+
+See [ROADMAP](docs/ROADMAP.md) and [ARCHITECTURE](docs/ARCHITECTURE.md) for details.
 
 ## Development
-
-Quality gate:
 
 ```bash
 cargo fmt --check
@@ -114,12 +174,10 @@ cargo test --workspace --all-features
 cargo build --workspace --release
 ```
 
-CI is prepared in `.github/workflows/ci.yml`. See `docs/RESEARCH.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md` and `docs/INTEGRATION-CHECKLIST.md`.
+## Contributing
 
-## Non-goals
-
-No compositor fork, no telemetry, no cloud service, no network listener, no arbitrary shell commands from config, and no global input hacks.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

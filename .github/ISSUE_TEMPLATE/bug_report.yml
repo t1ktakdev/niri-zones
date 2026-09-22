@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a reproducible problem in niri-zones
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please test with a disposable window when possible.
+  - type: input
+    id: version
+    attributes:
+      label: niri-zones version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: niri
+    attributes:
+      label: Niri version
+      placeholder: "26.04"
+    validations:
+      required: true
+  - type: textarea
+    id: topology
+    attributes:
+      label: Output topology
+      description: Include output resolution, scale, rotation, and number of monitors.
+      placeholder: "eDP-1: 1920x1200, scale 1"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: niri-zones doctor output
+      render: shell
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context

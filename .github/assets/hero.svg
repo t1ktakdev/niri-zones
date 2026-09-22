@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#10141d"/><stop offset="1" stop-color="#1a2230"/></linearGradient>
+<linearGradient id="l" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#26385a"/><stop offset="1" stop-color="#304f82"/></linearGradient>
+<linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b3264"/><stop offset="1" stop-color="#5b3f8f"/></linearGradient>
+</defs>
+<rect width="1200" height="520" rx="28" fill="url(#bg)"/>
+<text x="70" y="72" fill="#e6edf7" font-family="sans-serif" font-size="34" font-weight="700">niri-zones</text>
+<text x="1010" y="70" fill="#91a4bf" font-family="monospace" font-size="20">Mod+Z</text>
+<rect x="68" y="108" width="1064" height="336" rx="22" fill="#0d1118" stroke="#2d3848" stroke-width="2"/>
+<rect x="96" y="136" width="490" height="280" rx="18" fill="url(#l)" stroke="#6c8fc8" stroke-width="3"/>
+<rect x="614" y="136" width="490" height="280" rx="18" fill="url(#r)" stroke="#a47ce4" stroke-width="4"/>
+<text x="341" y="300" fill="#fff" font-family="sans-serif" font-size="96" font-weight="800" text-anchor="middle">1</text>
+<text x="859" y="300" fill="#fff" font-family="sans-serif" font-size="96" font-weight="800" text-anchor="middle">2</text>
+<text x="341" y="350" fill="#b9c9df" font-family="sans-serif" font-size="22" text-anchor="middle">left zone</text>
+<text x="859" y="350" fill="#d9c7f7" font-family="sans-serif" font-size="22" text-anchor="middle">selected zone</text>
+<rect x="333" y="464" width="534" height="36" rx="18" fill="#202938"/>
+<text x="600" y="488" fill="#b9c7da" font-family="sans-serif" font-size="18" text-anchor="middle">1-9 / arrows / Enter / Escape / mouse</text>
+</svg>
