@@ -6,6 +6,8 @@
 
 use std::collections::HashMap;
 use std::io;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use niri_ipc::socket::Socket;
 use niri_ipc::{Action, Event, Output, PositionChange, Request, Response, SizeChange, Window};
@@ -32,6 +34,10 @@ pub enum NiriError {
     InvalidTarget(String),
     #[error("window {0} disappeared or did not become floating after the apply sequence")]
     PostconditionFailed(u64),
+    #[error("timed out waiting for window {0} to enter the floating layout")]
+    FloatingTransitionTimeout(u64),
+    #[error("timed out waiting for window {0} geometry to settle after IPC actions")]
+    GeometrySettleTimeout(u64),
 }
 
 pub struct NiriBackend {
@@ -117,6 +123,7 @@ impl NiriBackend {
         if !before.is_floating {
             self.action(Action::MoveWindowToFloating { id: Some(id) })?;
             actions_sent += 1;
+            self.wait_until_floating(id, Duration::from_secs(1))?;
         }
 
         for action in zone_action_plan(id, target, gap)? {
@@ -124,12 +131,62 @@ impl NiriBackend {
             actions_sent += 1;
         }
 
-        let after = self.window(id)?;
+        let after = self.wait_until_layout_stable(id, Duration::from_millis(250))?;
         if !after.is_floating {
             return Err(NiriError::PostconditionFailed(id));
         }
 
         Ok(ApplyReport { before, after, actions_sent })
+    }
+
+    fn wait_until_floating(&mut self, id: u64, timeout: Duration) -> Result<Window, NiriError> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let window = self.window(id)?;
+            if window.is_floating {
+                return Ok(window);
+            }
+            if Instant::now() >= deadline {
+                return Err(NiriError::FloatingTransitionTimeout(id));
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    fn wait_until_layout_stable(
+        &mut self,
+        id: u64,
+        timeout: Duration,
+    ) -> Result<Window, NiriError> {
+        const POLL_INTERVAL: Duration = Duration::from_millis(5);
+        const REQUIRED_STABLE_REPEATS: usize = 4;
+
+        let deadline = Instant::now() + timeout;
+        let mut previous: Option<Window> = None;
+        let mut stable_repeats = 0;
+
+        loop {
+            let current = self.window(id)?;
+            if current.is_floating {
+                stable_repeats = match &previous {
+                    Some(previous) if previous.is_floating && previous.layout == current.layout => {
+                        stable_repeats + 1
+                    }
+                    _ => 0,
+                };
+                if stable_repeats >= REQUIRED_STABLE_REPEATS {
+                    return Ok(current);
+                }
+            } else {
+                stable_repeats = 0;
+            }
+            previous = Some(current);
+
+            if Instant::now() >= deadline {
+                return Err(NiriError::GeometrySettleTimeout(id));
+            }
+            thread::sleep(POLL_INTERVAL);
+        }
     }
 
     pub fn action(&mut self, action: Action) -> Result<(), NiriError> {
