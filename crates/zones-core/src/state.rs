@@ -32,7 +32,12 @@ impl SnapStateStore {
             None => {
                 self.records.insert(
                     before.id,
-                    SnapRecord { baseline: before, current_zone: zone, previous_zone: None, applied_geometry },
+                    SnapRecord {
+                        baseline: before,
+                        current_zone: zone,
+                        previous_zone: None,
+                        applied_geometry,
+                    },
                 );
             }
         }
@@ -43,7 +48,10 @@ impl SnapStateStore {
     }
 
     pub fn clear_if_manual_change(&mut self, id: WindowId, actual: Rect, tolerance: f64) -> bool {
-        let changed = self.records.get(&id).is_some_and(|record| !record.applied_geometry.approx_eq(actual, tolerance));
+        let changed = self
+            .records
+            .get(&id)
+            .is_some_and(|record| !record.applied_geometry.approx_eq(actual, tolerance));
         if changed {
             self.records.remove(&id);
         }
@@ -57,11 +65,23 @@ mod tests {
 
     #[test]
     fn moving_between_zones_keeps_original_baseline() {
-        let baseline = WindowSnapshot { id: 7, geometry: Rect::new(10.0, 20.0, 500.0, 400.0).unwrap(), is_floating: true };
+        let baseline = WindowSnapshot {
+            id: 7,
+            geometry: Rect::new(10.0, 20.0, 500.0, 400.0).unwrap(),
+            is_floating: true,
+        };
         let mut store = SnapStateStore::default();
-        store.record_success(baseline.clone(), ZoneId::from("1"), Rect::new(0.0, 0.0, 800.0, 900.0).unwrap());
         store.record_success(
-            WindowSnapshot { id: 7, geometry: Rect::new(0.0, 0.0, 800.0, 900.0).unwrap(), is_floating: true },
+            baseline.clone(),
+            ZoneId::from("1"),
+            Rect::new(0.0, 0.0, 800.0, 900.0).unwrap(),
+        );
+        store.record_success(
+            WindowSnapshot {
+                id: 7,
+                geometry: Rect::new(0.0, 0.0, 800.0, 900.0).unwrap(),
+                is_floating: true,
+            },
             ZoneId::from("2"),
             Rect::new(800.0, 0.0, 800.0, 900.0).unwrap(),
         );

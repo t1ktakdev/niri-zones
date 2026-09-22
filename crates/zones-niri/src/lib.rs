@@ -83,7 +83,10 @@ impl NiriBackend {
     }
 
     pub fn window(&mut self, id: u64) -> Result<Window, NiriError> {
-        self.windows()?.into_iter().find(|window| window.id == id).ok_or(NiriError::WindowMissing(id))
+        self.windows()?
+            .into_iter()
+            .find(|window| window.id == id)
+            .ok_or(NiriError::WindowMissing(id))
     }
 
     /// Apply a normalized zone to a Niri window.
@@ -159,7 +162,11 @@ impl NiriEventStream {
 
 /// Produce only Niri IPC actions, with no I/O. Keeping this translation pure makes
 /// it testable without a running compositor.
-pub fn zone_action_plan(id: u64, target: NormalizedRect, gap: f64) -> Result<Vec<Action>, NiriError> {
+pub fn zone_action_plan(
+    id: u64,
+    target: NormalizedRect,
+    gap: f64,
+) -> Result<Vec<Action>, NiriError> {
     target.validate().map_err(|error| NiriError::InvalidTarget(error.to_string()))?;
     validate_gap(gap)?;
 

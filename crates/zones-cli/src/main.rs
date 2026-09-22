@@ -71,9 +71,14 @@ fn run(cli: Cli) -> Result<(), String> {
             let zones = normalized_zones(&layout)?;
             let zone = zones
                 .iter()
-                .find(|candidate| candidate.id.0.as_str() == zone.as_str() || candidate.name.eq_ignore_ascii_case(&zone))
+                .find(|candidate| {
+                    candidate.id.0.as_str() == zone.as_str()
+                        || candidate.name.eq_ignore_ascii_case(&zone)
+                })
                 .ok_or_else(|| format!("layout '{}' has no zone '{}'", layout.name, zone))?;
-            let gap = gap.or_else(|| config.as_ref().map(|active| active.source.general.gap)).unwrap_or(12.0);
+            let gap = gap
+                .or_else(|| config.as_ref().map(|active| active.source.general.gap))
+                .unwrap_or(12.0);
             let allow_float = allow_float
                 || config
                     .as_ref()
@@ -82,11 +87,12 @@ fn run(cli: Cli) -> Result<(), String> {
             let mut niri = NiriBackend::connect().map_err(|error| error.to_string())?;
             let window_id = match id {
                 Some(id) => id,
-                None => niri
-                    .focused_window()
-                    .map_err(|error| error.to_string())?
-                    .ok_or_else(|| "no focused window".to_owned())?
-                    .id,
+                None => {
+                    niri.focused_window()
+                        .map_err(|error| error.to_string())?
+                        .ok_or_else(|| "no focused window".to_owned())?
+                        .id
+                }
             };
             let report = niri
                 .apply_zone(window_id, zone.normalized, gap, allow_float)
@@ -143,7 +149,9 @@ fn doctor(explicit_config: Option<&Path>) -> Result<(), String> {
                 }
             }
             match niri.outputs() {
-                Ok(outputs) if !outputs.is_empty() => println!("✓ {} output(s) visible through IPC", outputs.len()),
+                Ok(outputs) if !outputs.is_empty() => {
+                    println!("✓ {} output(s) visible through IPC", outputs.len())
+                }
                 Ok(_) => println!("! Niri reports no connected outputs"),
                 Err(error) => {
                     println!("✗ Could not query outputs: {error}");
@@ -193,7 +201,8 @@ fn load_config_if_present(explicit: Option<&Path>) -> Result<Option<ActiveConfig
         }
         return Ok(None);
     }
-    let source = fs::read_to_string(&path).map_err(|error| format!("could not read {}: {error}", path.display()))?;
+    let source = fs::read_to_string(&path)
+        .map_err(|error| format!("could not read {}: {error}", path.display()))?;
     ActiveConfig::from_toml(&source)
         .map(Some)
         .map_err(|error| format!("{}: {error}", path.display()))

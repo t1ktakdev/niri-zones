@@ -17,11 +17,17 @@ struct Score {
     euclidean_distance: f64,
 }
 
-pub fn select_directional<'a>(source: Rect, zones: &'a [ResolvedZone], direction: Direction) -> Option<&'a ResolvedZone> {
+pub fn select_directional(
+    source: Rect,
+    zones: &[ResolvedZone],
+    direction: Direction,
+) -> Option<&ResolvedZone> {
     zones
         .iter()
         .filter_map(|zone| score(source, zone.rect, direction).map(|score| (zone, score)))
-        .min_by(|(a_zone, a), (b_zone, b)| compare_scores(*a, *b).then_with(|| a_zone.id.0.cmp(&b_zone.id.0)))
+        .min_by(|(a_zone, a), (b_zone, b)| {
+            compare_scores(*a, *b).then_with(|| a_zone.id.0.cmp(&b_zone.id.0))
+        })
         .map(|(zone, _)| zone)
 }
 
@@ -51,18 +57,12 @@ fn score(source: Rect, target: Rect, direction: Direction) -> Option<Score> {
     }
 
     let (overlap, overlap_base, primary_distance, orthogonal_distance) = match direction {
-        Direction::Left | Direction::Right => (
-            source.vertical_overlap(target),
-            source.height.min(target.height),
-            dx.abs(),
-            dy.abs(),
-        ),
-        Direction::Up | Direction::Down => (
-            source.horizontal_overlap(target),
-            source.width.min(target.width),
-            dy.abs(),
-            dx.abs(),
-        ),
+        Direction::Left | Direction::Right => {
+            (source.vertical_overlap(target), source.height.min(target.height), dx.abs(), dy.abs())
+        }
+        Direction::Up | Direction::Down => {
+            (source.horizontal_overlap(target), source.width.min(target.width), dy.abs(), dx.abs())
+        }
     };
     let overlap_ratio = if overlap_base > 0.0 { overlap / overlap_base } else { 0.0 };
 

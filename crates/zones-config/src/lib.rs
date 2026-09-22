@@ -156,19 +156,26 @@ impl ActiveConfig {
     pub fn from_toml(input: &str) -> Result<Self, ConfigError> {
         let source: Config = toml::from_str(input)?;
         if source.version != CONFIG_VERSION {
-            return Err(ConfigError::UnsupportedVersion { found: source.version, expected: CONFIG_VERSION });
+            return Err(ConfigError::UnsupportedVersion {
+                found: source.version,
+                expected: CONFIG_VERSION,
+            });
         }
         if !source.general.gap.is_finite() || source.general.gap < 0.0 {
             return Err(ConfigError::InvalidGap);
         }
-        if !source.general.geometry_tolerance.is_finite() || source.general.geometry_tolerance < 0.0 {
+        if !source.general.geometry_tolerance.is_finite() || source.general.geometry_tolerance < 0.0
+        {
             return Err(ConfigError::InvalidTolerance);
         }
 
         let layouts = compile_layouts(&source.layouts)?;
         for (output, cfg) in &source.outputs {
             if !layouts.contains_key(&cfg.layout) {
-                return Err(ConfigError::UnknownOutputLayout { output: output.clone(), layout: cfg.layout.clone() });
+                return Err(ConfigError::UnknownOutputLayout {
+                    output: output.clone(),
+                    layout: cfg.layout.clone(),
+                });
             }
         }
         let rules = CompiledRules::compile(&source.rules, &layouts)?;
@@ -180,7 +187,9 @@ impl ActiveConfig {
     }
 }
 
-fn compile_layouts(layouts: &[LayoutConfig]) -> Result<HashMap<String, LayoutDefinition>, ConfigError> {
+fn compile_layouts(
+    layouts: &[LayoutConfig],
+) -> Result<HashMap<String, LayoutDefinition>, ConfigError> {
     let mut compiled = HashMap::new();
     for layout in layouts {
         if layout.name.trim().is_empty() {
@@ -197,15 +206,19 @@ fn compile_layouts(layouts: &[LayoutConfig]) -> Result<HashMap<String, LayoutDef
         let mut zones = Vec::with_capacity(layout.zones.len());
         for zone in &layout.zones {
             if !zone_ids.insert(zone.id.clone()) {
-                return Err(ConfigError::DuplicateZone { layout: layout.name.clone(), zone: zone.id.clone() });
-            }
-            let rect = NormalizedRect::new(zone.x, zone.y, zone.width, zone.height).map_err(|error| {
-                ConfigError::InvalidZone {
+                return Err(ConfigError::DuplicateZone {
                     layout: layout.name.clone(),
                     zone: zone.id.clone(),
-                    message: error.to_string(),
-                }
-            })?;
+                });
+            }
+            let rect =
+                NormalizedRect::new(zone.x, zone.y, zone.width, zone.height).map_err(|error| {
+                    ConfigError::InvalidZone {
+                        layout: layout.name.clone(),
+                        zone: zone.id.clone(),
+                        message: error.to_string(),
+                    }
+                })?;
             zones.push(ZoneSpec { id: ZoneId(zone.id.clone()), name: zone.name.clone(), rect });
         }
 
@@ -218,7 +231,10 @@ fn compile_layouts(layouts: &[LayoutConfig]) -> Result<HashMap<String, LayoutDef
 }
 
 impl CompiledRules {
-    fn compile(rules: &[RuleConfig], layouts: &HashMap<String, LayoutDefinition>) -> Result<Self, ConfigError> {
+    fn compile(
+        rules: &[RuleConfig],
+        layouts: &HashMap<String, LayoutDefinition>,
+    ) -> Result<Self, ConfigError> {
         let mut out = Vec::with_capacity(rules.len());
         for (index, rule) in rules.iter().enumerate() {
             if rule.zone.trim().is_empty() {
@@ -228,9 +244,9 @@ impl CompiledRules {
                 return Err(ConfigError::ConflictingAppMatcher { index });
             }
             if let Some(layout_name) = &rule.layout {
-                let layout = layouts
-                    .get(layout_name)
-                    .ok_or_else(|| ConfigError::UnknownRuleLayout { index, layout: layout_name.clone() })?;
+                let layout = layouts.get(layout_name).ok_or_else(|| {
+                    ConfigError::UnknownRuleLayout { index, layout: layout_name.clone() }
+                })?;
                 if !layout_has_zone(layout, &rule.zone) {
                     return Err(ConfigError::UnknownRuleZone {
                         index,
@@ -322,17 +338,27 @@ fn compare_rule_priority(a: &CompiledRule, b: &CompiledRule) -> Ordering {
         .then_with(|| b.source_index.cmp(&a.source_index))
 }
 
-fn compile_regex(index: usize, field: &'static str, value: Option<&str>) -> Result<Option<Regex>, ConfigError> {
+fn compile_regex(
+    index: usize,
+    field: &'static str,
+    value: Option<&str>,
+) -> Result<Option<Regex>, ConfigError> {
     value
         .map(|pattern| {
-            Regex::new(pattern).map_err(|error| ConfigError::InvalidRegex { index, field, message: error.to_string() })
+            Regex::new(pattern).map_err(|error| ConfigError::InvalidRegex {
+                index,
+                field,
+                message: error.to_string(),
+            })
         })
         .transpose()
 }
 
 fn layout_has_zone(layout: &LayoutDefinition, zone: &str) -> bool {
     match &layout.kind {
-        LayoutKind::Rectangles { zones } => zones.iter().any(|candidate| candidate.id.0 == zone || candidate.name == zone),
+        LayoutKind::Rectangles { zones } => {
+            zones.iter().any(|candidate| candidate.id.0 == zone || candidate.name == zone)
+        }
         LayoutKind::SplitTree { .. } => false,
     }
 }
@@ -435,7 +461,12 @@ zone = "specific"
         let config = ActiveConfig::from_toml(input).unwrap();
         let matched = config
             .rules
-            .best_match(RuleContext { app_id: Some("firefox"), title: Some("Docs - Mozilla"), output: None, workspace: None })
+            .best_match(RuleContext {
+                app_id: Some("firefox"),
+                title: Some("Docs - Mozilla"),
+                output: None,
+                workspace: None,
+            })
             .unwrap();
         assert_eq!(matched.zone, "specific");
         assert_eq!(matched.specificity, 2);

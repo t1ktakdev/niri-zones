@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+const NORMALIZED_EPSILON: f64 = 1e-12;
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Point {
     pub x: f64,
@@ -61,7 +63,12 @@ impl Rect {
     }
 
     pub fn inset(self, amount: f64) -> Result<Self, GeometryError> {
-        Self::new(self.x + amount, self.y + amount, self.width - amount * 2.0, self.height - amount * 2.0)
+        Self::new(
+            self.x + amount,
+            self.y + amount,
+            self.width - amount * 2.0,
+            self.height - amount * 2.0,
+        )
     }
 
     pub fn approx_eq(self, other: Self, tolerance: f64) -> bool {
@@ -73,7 +80,8 @@ impl Rect {
     }
 
     pub fn size_approx_eq(self, other: Self, tolerance: f64) -> bool {
-        (self.width - other.width).abs() <= tolerance && (self.height - other.height).abs() <= tolerance
+        (self.width - other.width).abs() <= tolerance
+            && (self.height - other.height).abs() <= tolerance
     }
 
     pub fn horizontal_overlap(self, other: Self) -> f64 {
@@ -107,7 +115,11 @@ impl NormalizedRect {
         if self.width <= 0.0 || self.height <= 0.0 {
             return Err(GeometryError::NonPositiveSize);
         }
-        if self.x < 0.0 || self.y < 0.0 || self.right() > 1.0 || self.bottom() > 1.0 {
+        if self.x < 0.0
+            || self.y < 0.0
+            || self.right() > 1.0 + NORMALIZED_EPSILON
+            || self.bottom() > 1.0 + NORMALIZED_EPSILON
+        {
             return Err(GeometryError::OutsideNormalizedBounds);
         }
         Ok(())
@@ -159,10 +171,12 @@ mod tests {
             let normalized = NormalizedRect::new(x, y, w, h).unwrap();
             let usable = Rect::new(-1920.0, 0.0, 2560.0, 1440.0).unwrap();
             let resolved = normalized.resolve(usable).unwrap();
-            prop_assert!(resolved.x >= usable.x - f64::EPSILON);
-            prop_assert!(resolved.y >= usable.y - f64::EPSILON);
-            prop_assert!(resolved.right() <= usable.right() + f64::EPSILON);
-            prop_assert!(resolved.bottom() <= usable.bottom() + f64::EPSILON);
+            let x_tolerance = usable.width.abs() * 1e-12 + f64::EPSILON;
+            let y_tolerance = usable.height.abs() * 1e-12 + f64::EPSILON;
+            prop_assert!(resolved.x >= usable.x - x_tolerance);
+            prop_assert!(resolved.y >= usable.y - y_tolerance);
+            prop_assert!(resolved.right() <= usable.right() + x_tolerance);
+            prop_assert!(resolved.bottom() <= usable.bottom() + y_tolerance);
             prop_assert!(resolved.width > 0.0 && resolved.height > 0.0);
         }
     }

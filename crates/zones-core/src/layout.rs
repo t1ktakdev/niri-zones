@@ -126,11 +126,21 @@ fn resolve_split(
             let (a, b) = match axis {
                 Axis::Horizontal => (
                     Rect::new(current.x, current.y, current.width * ratio, current.height)?,
-                    Rect::new(current.x + current.width * ratio, current.y, current.width * (1.0 - ratio), current.height)?,
+                    Rect::new(
+                        current.x + current.width * ratio,
+                        current.y,
+                        current.width * (1.0 - ratio),
+                        current.height,
+                    )?,
                 ),
                 Axis::Vertical => (
                     Rect::new(current.x, current.y, current.width, current.height * ratio)?,
-                    Rect::new(current.x, current.y + current.height * ratio, current.width, current.height * (1.0 - ratio))?,
+                    Rect::new(
+                        current.x,
+                        current.y + current.height * ratio,
+                        current.width,
+                        current.height * (1.0 - ratio),
+                    )?,
                 ),
             };
             resolve_split(first, a, root, inset, out)?;
@@ -156,7 +166,9 @@ pub fn builtin_layouts() -> Vec<LayoutDefinition> {
     vec![
         LayoutDefinition {
             name: "halves".into(),
-            kind: LayoutKind::SplitTree { root: split(Axis::Horizontal, 0.5, leaf("1", "Left"), leaf("2", "Right")) },
+            kind: LayoutKind::SplitTree {
+                root: split(Axis::Horizontal, 0.5, leaf("1", "Left"), leaf("2", "Right")),
+            },
         },
         LayoutDefinition {
             name: "thirds".into(),
@@ -194,7 +206,11 @@ pub fn builtin_layouts() -> Vec<LayoutDefinition> {
 }
 
 fn zone(id: &str, name: &str, x: f64, y: f64, width: f64, height: f64) -> ZoneSpec {
-    ZoneSpec { id: ZoneId::from(id), name: name.to_owned(), rect: NormalizedRect { x, y, width, height } }
+    ZoneSpec {
+        id: ZoneId::from(id),
+        name: name.to_owned(),
+        rect: NormalizedRect { x, y, width, height },
+    }
 }
 
 #[cfg(test)]
@@ -241,6 +257,6 @@ mod tests {
         let usable = Rect::new(-1080.0, 0.0, 1080.0, 1920.0).unwrap();
         let zones = builtin_layout("quarters").unwrap().resolve(usable, 0.0).unwrap();
         assert_eq!(zones[0].rect.x, -1080.0);
-        assert_eq!(zones[1].rect.right(), 0.0);
+        assert_eq!(zones[2].rect.right(), 0.0);
     }
 }

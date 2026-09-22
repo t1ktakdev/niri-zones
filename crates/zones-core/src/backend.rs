@@ -80,13 +80,19 @@ impl WindowBackend for MockBackend {
     fn window(&mut self, id: WindowId) -> Result<WindowSnapshot, BackendError> {
         self.operations.push(BackendOp::Read(id));
         self.maybe_fail(MockFailure::Read)?;
-        self.windows.get(&id).cloned().ok_or_else(|| BackendError::new(format!("window {id} does not exist")))
+        self.windows
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| BackendError::new(format!("window {id} does not exist")))
     }
 
     fn set_floating(&mut self, id: WindowId, floating: bool) -> Result<(), BackendError> {
         self.operations.push(BackendOp::SetFloating(id, floating));
         self.maybe_fail(MockFailure::SetFloating)?;
-        self.windows.get_mut(&id).ok_or_else(|| BackendError::new(format!("window {id} does not exist")))?.is_floating = floating;
+        self.windows
+            .get_mut(&id)
+            .ok_or_else(|| BackendError::new(format!("window {id} does not exist")))?
+            .is_floating = floating;
         Ok(())
     }
 
@@ -94,7 +100,10 @@ impl WindowBackend for MockBackend {
         self.operations.push(BackendOp::Resize(id, width, height));
         self.maybe_fail(MockFailure::Resize)?;
         let minimum = self.minimum_size.unwrap_or(Size { width: 0.0, height: 0.0 });
-        let window = self.windows.get_mut(&id).ok_or_else(|| BackendError::new(format!("window {id} does not exist")))?;
+        let window = self
+            .windows
+            .get_mut(&id)
+            .ok_or_else(|| BackendError::new(format!("window {id} does not exist")))?;
         window.geometry.width = width.max(minimum.width);
         window.geometry.height = height.max(minimum.height);
         Ok(())
@@ -103,7 +112,10 @@ impl WindowBackend for MockBackend {
     fn move_window(&mut self, id: WindowId, x: f64, y: f64) -> Result<(), BackendError> {
         self.operations.push(BackendOp::Move(id, x, y));
         self.maybe_fail(MockFailure::Move)?;
-        let window = self.windows.get_mut(&id).ok_or_else(|| BackendError::new(format!("window {id} does not exist")))?;
+        let window = self
+            .windows
+            .get_mut(&id)
+            .ok_or_else(|| BackendError::new(format!("window {id} does not exist")))?;
         window.geometry.x = x;
         window.geometry.y = y;
         Ok(())
