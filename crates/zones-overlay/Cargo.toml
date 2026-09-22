@@ -1,0 +1,12 @@
+[package]
+name = "zones-overlay"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+smithay-client-toolkit.workspace = true
+thiserror.workspace = true
+wayland-client.workspace = true
+zones-core = { path = "../zones-core" }

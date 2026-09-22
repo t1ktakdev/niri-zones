@@ -14,13 +14,14 @@
 
 ```text
 crates/
-  zones-core/    pure domain model + engine + mock backend
-  zones-config/  TOML schema + validation + compiled rules
-  zones-niri/    Niri IPC translation only
-  zones-cli/     user-facing commands
+  zones-core/     pure domain model + engine + mock backend
+  zones-config/   TOML schema + validation + compiled rules
+  zones-niri/     Niri IPC translation only
+  zones-overlay/  Wayland/wlr-layer-shell chooser using core-resolved geometry
+  zones-cli/      user-facing commands
 ```
 
-Overlay and daemon are intentionally deferred so the MVP does not accumulate UI/runtime complexity before geometry semantics are stable.
+The overlay is a short-lived process, not a polling daemon. It captures the target Niri window before taking keyboard focus, renders zones from the same core layout result used by apply, and exits after selection or cancellation. The daemon remains a later milestone.
 
 ## Layout model
 

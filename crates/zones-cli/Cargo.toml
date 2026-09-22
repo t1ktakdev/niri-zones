@@ -12,3 +12,4 @@ toml.workspace = true
 zones-config = { path = "../zones-config" }
 zones-core = { path = "../zones-core" }
 zones-niri = { path = "../zones-niri" }
+zones-overlay = { path = "../zones-overlay" }

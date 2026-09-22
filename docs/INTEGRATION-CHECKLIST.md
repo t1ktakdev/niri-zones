@@ -21,12 +21,13 @@ Test each case with an ordinary floating terminal first, then Firefox or another
 2. `niri-zones move 1 --layout halves`
 3. repeat the same command and confirm the visible geometry does not drift
 4. `niri-zones move 2 --layout halves`
-5. run with `--gap 0`, `--gap 12`, and a fractional output scale
-6. try a tiled window without `--float`: it must refuse
-7. repeat with `--float`: conversion must be explicit
-8. close the target window just before a command and verify a clean error
-9. disconnect/reconnect a secondary output and rerun `doctor`
-10. validate dual-output setups with different scales and a rotated output
+5. `niri-zones show --layout halves --float`: verify digits, arrows + Enter, Escape and pointer click
+6. run with `--gap 0`, `--gap 12`, and a fractional output scale
+7. try a tiled window without `--float`: it must refuse
+8. repeat with `--float`: conversion must be explicit
+9. close the target window just before a command and verify a clean error
+10. disconnect/reconnect a secondary output and rerun `doctor`
+11. validate dual-output setups with different scales and a rotated output
 
 ## Geometry observations to capture
 

@@ -4,7 +4,7 @@
 
 `niri-zones` is a native-to-Niri zone engine for floating windows. The goal is simple: choose a zone and place the current floating window there without replacing Niri's scrolling tiling model.
 
-> Status: pre-release `0.1.0` development. The core and Niri IPC source are implemented; real compositor integration still needs to be verified inside an actual Niri session.
+> Status: pre-release `0.1.0` development. Core, Niri 26.04 IPC, restore state, and the first Wayland-native layer-shell overlay are implemented and have been exercised on a live Niri session. Real multi-output and fractional-scale integration are still pending.
 
 ## Why
 
@@ -15,9 +15,10 @@ Niri has a capable floating layout and IPC actions for moving/resizing windows, 
 - `zones-core` — compositor-independent geometry, layouts, directional selection, snap state and a mock backend.
 - `zones-config` — schema-versioned TOML, validation and regexes compiled at activation time.
 - `zones-niri` — thin Niri 26.04 IPC adapter; normalized `0..1` zones become Niri percentages.
-- `niri-zones` — CLI with `status`, `doctor`, `list` and `move`.
+- `zones-overlay` — Wayland-native wlr-layer-shell chooser with transparent previews, pointer selection, digits, arrows, Enter and Escape.
+- `niri-zones` — CLI with `status`, `doctor`, `list`, `move`, `show` and `restore`.
 
-The project intentionally starts with four crates rather than splitting every concern into a separate crate.
+The workspace stays deliberately small: core math is shared by the IPC backend and overlay so preview geometry cannot drift from snap geometry.
 
 ## Quick start (after building on Linux inside Niri)
 
@@ -25,8 +26,9 @@ The project intentionally starts with four crates rather than splitting every co
 cargo build --release
 ./target/release/niri-zones doctor
 ./target/release/niri-zones list halves
-./target/release/niri-zones move 1 --layout halves
-./target/release/niri-zones move 2 --layout halves
+./target/release/niri-zones show --layout halves --float
+./target/release/niri-zones move 2 --layout halves --float
+./target/release/niri-zones restore
 ```
 
 A tiled window is refused by default. Converting it to floating must be explicit:
@@ -35,7 +37,7 @@ A tiled window is refused by default. Converting it to floating must be explicit
 niri-zones move 1 --float
 ```
 
-Configured zones can be named, so later the same flow can be `niri-zones move terminal --layout coding`.
+Configured zones can be named, so the same flow can be `niri-zones move terminal --layout coding`. The overlay captures the focused Niri window before taking keyboard focus, then snaps that original window after selection.
 
 ## Configuration
 
@@ -58,14 +60,17 @@ Niri's IPC exposes proportional position/size actions relative to its working ar
 
 A true FancyZones-style drag hook is not promised yet: the current public IPC does not expose enough global pointer/interactive-move state to implement it cleanly without input hacks.
 
-## Planned UX
+## Overlay UX
+
+The first layer-shell overlay is implemented. A recommended Niri binding is:
 
 ```kdl
-// after the overlay milestone
-Mod+Z { spawn "niri-zones" "show"; }
+Mod+Z repeat=false { spawn "niri-zones" "show" "--float"; }
 ```
 
-Then `Mod+Z`, followed by `1..9`, arrows or a click, will select the zone. The overlay is deferred until the core geometry and real Niri apply semantics are verified.
+`1..9` selects immediately, arrows change selection, Enter confirms, Escape cancels, and a left click selects the zone under the pointer. Tiled-to-floating conversion remains explicit through `--float` (or the corresponding config option).
+
+The binding above is only a snippet; `niri-zones` never rewrites your Niri config automatically.
 
 ## Development
 
@@ -73,6 +78,7 @@ Quality gate:
 
 ```bash
 cargo fmt --check
+cargo check --workspace --all-targets --all-features
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 cargo build --workspace --release

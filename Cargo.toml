@@ -3,6 +3,7 @@ members = [
   "crates/zones-core",
   "crates/zones-config",
   "crates/zones-niri",
+  "crates/zones-overlay",
   "crates/zones-cli",
 ]
 resolver = "2"
@@ -10,7 +11,7 @@ resolver = "2"
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.86"
 license = "MIT"
 
 [workspace.dependencies]
@@ -21,3 +22,5 @@ regex = "1.11"
 clap = { version = "4.5", features = ["derive"] }
 niri-ipc = "=26.4.0"
 proptest = "1.6"
+smithay-client-toolkit = "0.21.1"
+wayland-client = "0.31.15"

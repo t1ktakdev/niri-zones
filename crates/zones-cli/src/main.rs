@@ -9,6 +9,7 @@ use runtime_state::{RuntimeState, StoredGeometry, StoredSize, WindowRecord};
 use zones_config::ActiveConfig;
 use zones_core::{builtin_layout, LayoutDefinition, Rect, ResolvedZone, Size};
 use zones_niri::{visual_geometry, NiriBackend, NiriEventStream};
+use zones_overlay::{probe_wayland, show_overlay};
 
 #[derive(Debug, Parser)]
 #[command(name = "niri-zones", version, about = "FancyZones-style window zones for Niri")]
@@ -47,6 +48,17 @@ enum Command {
         #[arg(long)]
         gap: Option<f64>,
     },
+    /// Show the Wayland zone chooser for the currently focused window.
+    Show {
+        #[arg(long, default_value = "halves")]
+        layout: String,
+        /// Explicitly allow converting a tiled window to floating after selection.
+        #[arg(long = "float")]
+        allow_float: bool,
+        /// Override configured gap in logical pixels.
+        #[arg(long)]
+        gap: Option<f64>,
+    },
     /// Restore a snapped window to its original floating geometry or tiled state.
     Restore {
         /// Niri runtime window id. Defaults to the focused window.
@@ -77,8 +89,45 @@ fn run(cli: Cli) -> Result<(), String> {
         Command::Move { zone, layout, id, allow_float, gap } => {
             move_to_zone(cli.config.as_deref(), &zone, &layout, id, allow_float, gap)
         }
+        Command::Show { layout, allow_float, gap } => {
+            show_zone_overlay(cli.config.as_deref(), &layout, allow_float, gap)
+        }
         Command::Restore { id } => restore_window_state(cli.config.as_deref(), id),
     }
+}
+
+fn show_zone_overlay(
+    explicit_config: Option<&Path>,
+    layout_name: &str,
+    allow_float: bool,
+    gap: Option<f64>,
+) -> Result<(), String> {
+    let config = load_config_if_present(explicit_config)?;
+    let layout = find_layout(layout_name, config.as_ref())?;
+    let gap =
+        gap.or_else(|| config.as_ref().map(|active| active.source.general.gap)).unwrap_or(12.0);
+    let allow_float = allow_float
+        || config.as_ref().is_some_and(|active| active.source.general.allow_tiled_to_floating);
+
+    let mut niri = NiriBackend::connect().map_err(|error| error.to_string())?;
+    let focused = niri
+        .focused_window()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "no focused window".to_owned())?;
+    if !focused.is_floating && !allow_float {
+        return Err(format!(
+            "window {} is tiled; pass --float to allow tiled-to-floating snap",
+            focused.id
+        ));
+    }
+    let target_window = focused.id;
+    drop(niri);
+
+    let Some(zone) = show_overlay(layout, gap).map_err(|error| error.to_string())? else {
+        return Ok(());
+    };
+
+    move_to_zone(explicit_config, &zone, layout_name, Some(target_window), allow_float, Some(gap))
 }
 
 fn move_to_zone(
@@ -201,8 +250,7 @@ fn restore_window_state(explicit_config: Option<&Path>, id: Option<u64>) -> Resu
 
     let applied = record.applied_geometry.to_rect()?;
     if !current.is_floating
-        || visual_geometry(&current)
-            .map_or(true, |geometry| !geometry.approx_eq(applied, tolerance))
+        || visual_geometry(&current).is_none_or(|geometry| !geometry.approx_eq(applied, tolerance))
     {
         state.remove(window_id);
         state.save_atomic()?;
@@ -356,7 +404,14 @@ fn doctor(explicit_config: Option<&Path>) -> Result<(), String> {
         }
     }
 
-    println!("! Overlay backend: not implemented in the current core milestone");
+    match probe_wayland() {
+        Ok(()) => println!("✓ Wayland display connection available"),
+        Err(error) => {
+            println!("✗ Wayland display unavailable: {error}");
+            failed = true;
+        }
+    }
+
     if failed {
         Err("doctor found one or more blocking problems".into())
     } else {
