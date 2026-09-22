@@ -135,7 +135,7 @@ impl NiriBackend {
             actions_sent += 1;
         }
 
-        let after = self.wait_until_layout_stable(id, true, Duration::from_millis(250))?;
+        let after = self.wait_until_layout_stable(id, true, Duration::from_secs(1))?;
         if !after.is_floating {
             return Err(NiriError::PostconditionFailed(id));
         }
@@ -165,7 +165,7 @@ impl NiriBackend {
                 id: Some(id),
                 change: SizeChange::SetFixed(fixed_size(geometry.height)?),
             })?;
-            let resized = self.wait_until_layout_stable(id, true, Duration::from_millis(250))?;
+            let resized = self.wait_until_layout_stable(id, true, Duration::from_secs(1))?;
             let current_geometry =
                 visual_geometry(&resized).ok_or(NiriError::InvalidRestoreGeometry)?;
             self.action(Action::MoveFloatingWindow {
@@ -173,7 +173,7 @@ impl NiriBackend {
                 x: PositionChange::AdjustFixed(geometry.x - current_geometry.x),
                 y: PositionChange::AdjustFixed(geometry.y - current_geometry.y),
             })?;
-            self.wait_until_layout_stable(id, true, Duration::from_millis(250))
+            self.wait_until_layout_stable(id, true, Duration::from_secs(1))
         } else {
             if current.is_floating {
                 self.action(Action::MoveWindowToTiling { id: Some(id) })?;
@@ -188,7 +188,7 @@ impl NiriBackend {
                 id: Some(id),
                 change: SizeChange::SetFixed(fixed_size(size.height)?),
             })?;
-            self.wait_until_layout_stable(id, false, Duration::from_millis(250))
+            self.wait_until_layout_stable(id, false, Duration::from_secs(1))
         }
     }
 
@@ -226,34 +226,40 @@ impl NiriBackend {
         expected_floating: bool,
         timeout: Duration,
     ) -> Result<Window, NiriError> {
-        const POLL_INTERVAL: Duration = Duration::from_millis(5);
-        const REQUIRED_STABLE_REPEATS: usize = 4;
+        const POLL_INTERVAL: Duration = Duration::from_millis(10);
+        const MIN_OBSERVE: Duration = Duration::from_millis(250);
+        const STABLE_FOR: Duration = Duration::from_millis(120);
 
-        let deadline = Instant::now() + timeout;
+        let started = Instant::now();
+        let deadline = started + timeout;
         let mut previous: Option<Window> = None;
-        let mut stable_repeats = 0;
+        let mut stable_since: Option<Instant> = None;
 
         loop {
+            let now = Instant::now();
             let current = self.window(id)?;
             if current.is_floating == expected_floating {
-                stable_repeats = match &previous {
+                match &previous {
                     Some(previous)
                         if previous.is_floating == expected_floating
                             && previous.layout == current.layout =>
                     {
-                        stable_repeats + 1
+                        stable_since.get_or_insert(now);
                     }
-                    _ => 0,
-                };
-                if stable_repeats >= REQUIRED_STABLE_REPEATS {
+                    _ => stable_since = Some(now),
+                }
+
+                if now.duration_since(started) >= MIN_OBSERVE
+                    && stable_since.is_some_and(|since| now.duration_since(since) >= STABLE_FOR)
+                {
                     return Ok(current);
                 }
             } else {
-                stable_repeats = 0;
+                stable_since = None;
             }
             previous = Some(current);
 
-            if Instant::now() >= deadline {
+            if now >= deadline {
                 return Err(NiriError::GeometrySettleTimeout(id));
             }
             thread::sleep(POLL_INTERVAL);
